@@ -12,261 +12,324 @@ import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
-
 import java.util.ArrayList;
 
-public class GameView extends SurfaceView implements Runnable{
+public class GameView extends SurfaceView implements Runnable {
 
-
-    //booleano para verificar si se esta jugando o no
     volatile boolean playing;
-
-    //hilo del juego
     private Thread gameThread = null;
-
     private Player player;
 
+    //un almacenador para el ancho de la pantalla
     int screenX;
-    //context para usar en onTouchEvent para navegar entre GameActivity a MainActivity
+
+
+    //Contexto que se utilizara en onTouchEvent para realizar una transicion de GameActivity a MainActivity
     Context context;
 
+    //El almacenador para score
     int score;
 
+    //un almacenador para los 4 scores mas altos
     int highScore[] = new int[4];
 
-    //para guardar High Scores
+    //Objeto Shared Preferrences para guardar el score
     SharedPreferences sharedPreferences;
 
-    int countMises;
-    //indica si un enemigo entro a la pantalla de juego
-    boolean flag;
 
-    //indica Game Over
-    private boolean isGameOver;
+    //El contador para el numero de fallos
+    int countMisses;
 
-    //Estos objetos se utilizaran para dibujar la superficie
+    //Un indicador que nos dice si un enemigo ha entrado en la pantalla
+    boolean flag ;
+
+    //Un indicador por si el juego termina
+    private boolean isGameOver ;
+
     private Paint paint;
     private Canvas canvas;
     private SurfaceHolder surfaceHolder;
 
     private Enemy enemies;
 
+
+
+    //Creando una referencia a la clase Friend
     private Friend friend;
 
 
-    //Añadiendo lista de estrellas
-    private ArrayList<Star> stars = new ArrayList<Star>();
+    private ArrayList<Star> stars = new
+            ArrayList<Star>();
 
-    //definiendo el objeto boom
+    //Definiendo un objeto de tipo boom para mostrar una explosion
     private Boom boom;
 
-    //objetos para configurar la musica y sonidos de fondo
-    static MediaPlayer gameOnsound;
+    //Los objetos MediaPlayer para configurar la musica de fondo
+    static  MediaPlayer gameOnsound;
+
     final MediaPlayer killedEnemysound;
+
     final MediaPlayer gameOversound;
 
-    //constructor
 
-    public GameView(Context context, int screenX, int screenY){
 
+    public GameView(Context context, int screenX, int screenY) {
         super(context);
-
-        //Inicializando el player
         player = new Player(context, screenX, screenY);
 
-        //Inicializando los objetos para dibujar
+
         surfaceHolder = getHolder();
         paint = new Paint();
 
+        //Inicializando el contexto
         this.context = context;
 
-        //añadiendo estrellas
         int starNums = 100;
-        for (int i = 0; i < starNums; i++){
+        for (int i = 0; i < starNums; i++) {
             Star s = new Star(screenX, screenY);
             stars.add(s);
         }
 
-        enemies = new Enemy(context, screenX, screenY);
 
-        //iniciando objeto Boom
+
+
+        enemies = new Enemy(context,screenX,screenY);
+
+        //Inicializando el objeto boom
         boom = new Boom(context);
 
-        //iniciando el objeto de la clase Friend
+        //Inicializando el objeto de amigo
         friend = new Friend(context, screenX, screenY);
 
+        //Seteando el score a 0
         score = 0;
 
-        countMises = 0;
+        //Seteando los fallos a 0
+        countMisses = 0;
+
 
         this.screenX = screenX;
 
+
         isGameOver = false;
 
-        sharedPreferences = context.getSharedPreferences("SHAR_PREF_NAME", Context.MODE_PRIVATE);
 
-        //se inicializan los valores del arreglo de puntaje
-        highScore[0] = sharedPreferences.getInt("score1", 0);
-        highScore[1] = sharedPreferences.getInt("score2", 0);
-        highScore[2] = sharedPreferences.getInt("score3", 0);
-        highScore[3] = sharedPreferences.getInt("score4", 0);
+        //Iniciando el objeto SharedPreferences
+        sharedPreferences = context.getSharedPreferences("SHAR_PREF_NAME",Context.MODE_PRIVATE);
 
-        //inicializan los valores de los sonidos
-        gameOnsound = MediaPlayer.create(context, R.raw.gameon);
-        killedEnemysound = MediaPlayer.create(context, R.raw.killedenemy);
-        gameOversound = MediaPlayer.create(context, R.raw.gameover);
 
-        //inicia la musica que va a sonar en el juego
+        //initializing the array high scores with the previous values
+        highScore[0] = sharedPreferences.getInt("score1",0);
+        highScore[1] = sharedPreferences.getInt("score2",0);
+        highScore[2] = sharedPreferences.getInt("score3",0);
+        highScore[3] = sharedPreferences.getInt("score4",0);
+
+        //Inicializando los archivos para la musica y sonidos del juego
+        gameOnsound = MediaPlayer.create(context,R.raw.gameon);
+        killedEnemysound = MediaPlayer.create(context,R.raw.killedenemy);
+        gameOversound = MediaPlayer.create(context,R.raw.gameover);
+
+        //Iniciando la musica que sera reproducida en el juego
         gameOnsound.start();
+
     }
+
+
+
+
 
     @Override
     public void run() {
+
         while (playing) {
-            //actualiza la pantalla
+
             update();
-
-            //dibuja la pantalla
             draw();
-
-            //controla
             control();
+
         }
+
+
     }
 
+
     private void update() {
-        //aumenta el puntaje entre mas pasa el tiempo
+
+        //Incrementando el score mientras pasa el tiempo
         score++;
 
-        //actualiza la posicion del jugador
         player.update();
 
+        //Seteando la colision fuera de la pantalla
         boom.setX(-250);
         boom.setY(-250);
 
+        for (Star s : stars) {
 
-        for (Star s : stars){
             s.update(player.getSpeed());
         }
-        //pone la vandera en true cuando los enemigo aparecen en pantalla
-        if (enemies.getX() == screenX){
+
+        //Seteando la flag a true cuando un enemigo entra en la pantalla
+        if(enemies.getX()==screenX){
+
             flag = true;
         }
 
 
         enemies.update(player.getSpeed());
-            //si la colision ocurre con Player
-            if(Rect.intersects(player.getDetectCollision(), enemies.getDetectCollision())){
+        //Si ocurre una colision con el jugador
+        if (Rect.intersects(player.getDetectCollision(), enemies.getDetectCollision())) {
 
-                //mostrando el boom en la ubicacion
-                boom.setX(enemies.getX());
-                boom.setY(enemies.getY());
+            //Mostrando la colision en esa ubicacion
+            boom.setX(enemies.getX());
+            boom.setY(enemies.getY());
 
-                //inicializa el sonido de colision entre el jugador y el enemigo
-                killedEnemysound.start();
 
-                //moviendo al enemigo afuera del borde izquierdo
-               enemies.setX(-200);
-            }else {//cuando faya el jugador
-                //si el enemigo acaba de entrar a la pantalla
-                if (flag){
-                    //si la coordenadas en x son iguales a las coordenadas en y del enemigo
-                    if (player.getDetectCollision().exactCenterX() >= enemies.getDetectCollision().exactCenterX()){
-                        countMises++;
-                        //se pone la bandera en falso para que el else solo se ejecute cuando el enemigo este en pantalla
-                        flag = false;
+            //Reproduce un sonido cuando el jugador colisiona con un enemigo
+            killedEnemysound.start();
 
-                        //si se falla 3 veces se pierde el juego
-                        if (countMises == 3){
-                            //se ponen las banderas en su valor correspondiente
-                            playing = false;
-                            isGameOver = true;
+            enemies.setX(-200);
+        }
 
-                            gameOnsound.stop();
-                            gameOversound.start();
+        else{// La condicion cuando el jugador falla a un enemigo
 
-                            //asigna el puntaje al arreglo
-                            for (int i=0; i<4; i++){
-                                if (highScore[i]<score){
-                                    final int finalI = i;
-                                    highScore[i] = score;
-                                    break;
-                                }
+            //Si el enemigo acaba de entrar
+            if(flag){
+
+                //Si la coordenada x del jugador es igual a la coordenada x del enemigo
+                if(player.getDetectCollision().exactCenterX()>=enemies.getDetectCollision().exactCenterX()){
+
+                    //incrementando countMisses
+                    countMisses++;
+
+                    //Cambiando el valor de flag a false dado que el else solo se ejecutara cuando un nuevo enemigo entre en la pantalla
+                    flag = false;
+
+                    //Si el numero de fallos es igual a 3 entonces se acaba el juego
+                    if(countMisses==3){
+
+                        //Seteando playing a false y Game over a true
+                        playing = false;
+                        isGameOver = true;
+
+
+                        //Parando la musica de juego
+                        gameOnsound.stop();
+                        //Reproduciendo la musica de juego acabado
+                        gameOversound.start();
+
+                        //Asignando los scores al arreglo de scores
+                        for(int i=0;i<4;i++){
+                            if(highScore[i]<score){
+
+                                final int finalI = i;
+                                highScore[i] = score;
+                                break;
                             }
-                            //guarda el puntaje por shared preferences
-                            SharedPreferences.Editor e = sharedPreferences.edit();
-
-                            for (int i=0; i<4; i++){
-                                int j = i+1;
-                                e.putInt("puntaje"+j, highScore[i]);
-                            }
-                            e.apply();
                         }
+
+                        //Almacenando el score con Shared Preferences
+                        SharedPreferences.Editor e = sharedPreferences.edit();
+
+                        for(int i=0;i<4;i++){
+
+                            int j = i+1;
+                            e.putInt("score"+j,highScore[i]);
+                        }
+                        e.apply();
+
                     }
+
                 }
             }
 
-          friend.update(player.getSpeed());
-            //revisa si hay collision
-        if (Rect.intersects(player.getDetectCollision(), friend.getDetectCollision())){
-            // muestra explosion en la colision
+        }
+
+
+
+        //Actualizando las coordenadas de las naves aliadas
+        friend.update(player.getSpeed());
+        //Chequeando si hay colision entre el jugador y un aliado
+        if(Rect.intersects(player.getDetectCollision(),friend.getDetectCollision())){
+
+            //Mostrando la explosion en la colision
             boom.setX(friend.getX());
             boom.setY(friend.getY());
-            //se detiene el juego
+            //Cambiando playing a falso cuando se acaba el juego
             playing = false;
+            //Cambiando el valor de isGameover a true
             isGameOver = true;
 
+
+
+            //Parando la musica del juego
             gameOnsound.stop();
+            //Reproduciendo la musica de game over
             gameOversound.start();
 
-            //asignando el puntaje al arreglo
-            for (int i=0;i<4;i++){
-                if (highScore[i]<score){
+            //Assigning the scores to the highscore integer array
+            for(int i=0;i<4;i++){
+
+                if(highScore[i]<score){
+
                     final int finalI = i;
                     highScore[i] = score;
                     break;
                 }
-            }
 
-            //guardando el puntaje
+
+            }
+            //Guardando el score con shared preferences
             SharedPreferences.Editor e = sharedPreferences.edit();
 
-            for (int i=0;i<4;i++){
-                int j = i=1;
-                e.putInt("puntaje"+j,highScore[i]);
+            for(int i=0;i<4;i++){
+
+                int j = i+1;
+                e.putInt("score"+j,highScore[i]);
             }
             e.apply();
+
         }
 
     }
 
+
     private void draw() {
-        //Checkea que la superficie sea valida
         if (surfaceHolder.getSurface().isValid()) {
-            //Lockea el canvas
             canvas = surfaceHolder.lockCanvas();
-            //Dibujando un color de fondo para el canvas
             canvas.drawColor(Color.BLACK);
-            //asignando el color de las estrellas
+
+
+
             paint.setColor(Color.WHITE);
             paint.setTextSize(20);
 
-            //dibujando las estrellas
-            for(Star s : stars){
+            for (Star s : stars) {
                 paint.setStrokeWidth(s.getStarWidth());
                 canvas.drawPoint(s.getX(), s.getY(), paint);
             }
-            //Dibujando el jugador
-            canvas.drawBitmap(player.getBitmap(),
-                    player.getX(), player.getY(), paint);
 
-            canvas.drawBitmap(enemies.getBitmap(), enemies.getX(), enemies.getY(), paint);
+            canvas.drawBitmap(
+                    player.getBitmap(),
+                    player.getX(),
+                    player.getY(),
+                    paint);
 
-            //dibuja el puntaje en la pantalla de juego
+
+            canvas.drawBitmap(
+                    enemies.getBitmap(),
+                    enemies.getX(),
+                    enemies.getY(),
+                    paint
+
+            );
+
+            //dibujando el score en la pantalla
             paint.setTextSize(30);
-            canvas.drawText("Puntaje"+score,100,50,paint);
+            canvas.drawText("Score:"+score,100,50,paint);
 
-            //dibujando imagen boom
+
+            //dibujando la imagen de la colision
             canvas.drawBitmap(
                     boom.getBitmap(),
                     boom.getX(),
@@ -274,25 +337,32 @@ public class GameView extends SurfaceView implements Runnable{
                     paint
             );
 
-            //dibujando imagen friend
+
+
+
+
+
+            //Dibujando la imagen de aliado
             canvas.drawBitmap(
+
                     friend.getBitmap(),
                     friend.getX(),
                     friend.getY(),
                     paint
             );
 
-            //pone game over cuando se pierde
-            if (isGameOver){
+
+            //Dibuja en la pantalla game over cuando el juego termina
+            if(isGameOver){
                 paint.setTextSize(150);
                 paint.setTextAlign(Paint.Align.CENTER);
 
-                int yPos = (int) ((canvas.getHeight() / 2) - ((paint.descent() + paint.ascent())/2));
-                canvas.drawText("GAME OVER", canvas.getWidth() / 2, yPos, paint);
+                int yPos=(int) ((canvas.getHeight() / 2) - ((paint.descent() + paint.ascent()) / 2));
+                canvas.drawText("Game Over",canvas.getWidth()/2,yPos,paint);
             }
 
-            //Desbloqueando el canvas
             surfaceHolder.unlockCanvasAndPost(canvas);
+
         }
     }
 
@@ -305,48 +375,56 @@ public class GameView extends SurfaceView implements Runnable{
     }
 
     public void pause() {
-        //cuando el juego esta pausado la variable se cambia a falso
         playing = false;
         try {
-            //deteniendo el hilo
             gameThread.join();
         } catch (InterruptedException e) {
-
         }
     }
 
     public void resume() {
-        //cuando se quita pausa se inicia el hilo otra vez
         playing = true;
         gameThread = new Thread(this);
         gameThread.start();
-
     }
 
-    //Para la musica al salir
+    //Para la musica al salir del juego
     public static void stopMusic(){
+
         gameOnsound.stop();
     }
 
 
-
     @Override
     public boolean onTouchEvent(MotionEvent motionEvent) {
-        switch (motionEvent.getAction() & MotionEvent.ACTION_MASK){
-        case MotionEvent.ACTION_UP:
-        player.stopBoosting();
-        break;
-        case MotionEvent.ACTION_DOWN:
-        player.setBoosting();
-        break;
+
+
+        switch (motionEvent.getAction() & MotionEvent.ACTION_MASK) {
+            case MotionEvent.ACTION_UP:
+                player.stopBoosting();
+                break;
+            case MotionEvent.ACTION_DOWN:
+                player.setBoosting();
+                break;
 
         }
-        //si se acabo el juego un tap a la pantalla nos regresa a la pantalla de inicio
-        if (isGameOver){
-            if (motionEvent.getAction() == MotionEvent.ACTION_DOWN){
-                context.startActivity(new Intent(context, MainActivity.class));
+
+        //Si el juego se acaba un toque en la pantalla nos devolvera a la pantalla principal
+        if(isGameOver){
+
+            if(motionEvent.getAction()==MotionEvent.ACTION_DOWN){
+
+                context.startActivity(new Intent(context,MainActivity.class));
+
             }
+
         }
+
         return true;
+
     }
+
+
+
+
 }
